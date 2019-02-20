@@ -14,7 +14,8 @@ def _addGroupUser(group, user):
     return (e.response['Error']['Message'])
   else:
     userData = response['Item']
-
+#TODO: Check if user is registered and if so add them to group. Otherwise
+# return instructions for registering
 
   # table.put_item(Item= {'Group':  group, 'user': group})
 
