@@ -11,6 +11,7 @@ Globals:
       Variables:
         DYNAMO_GROUP_TABLE: !Ref DynamoTelegramTable
         DYNAMO_REG_TABLE: !Ref DynamoHabiticaTable
+        DYNAMO_BOT_TABLE: !Ref DynamoBotSettingsTable
         DB_ENDPOINT: http://dynamodb/us-west-2.amazonaws.com
         REGION_NAME: us-west-2
 
@@ -53,6 +54,18 @@ DynamoHabiticaTable:
 DynamoTelegramTable:
   Type: AWS::Serverless::SimpleTable
   TableName: telegramGroupUsers
+  PrimaryKey:
+    Name: userId
+    Type: String
+    ProvisionedThroughput:
+      ReadCapacityUnit: 5
+      WriteCapacityUnit: 5
+    Tags:
+      AppType: Serverless
+
+DynamoBotSettingsTable:
+  Type: AWS::Serverless::SimpleTable
+  TableName: habiticaBotSettings
   PrimaryKey:
     Name: userId
     Type: String
