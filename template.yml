@@ -1,0 +1,67 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+
+Description: A telegram bot to interface with habitica
+
+Globals:
+  Function:
+    Runtime: python3.7
+    Timeout: 180
+    Environment:
+      Variables:
+        DYNAMO_GROUP_TABLE: !Ref DynamoTelegramTable
+        DYNAMO_REG_TABLE: !Ref DynamoHabiticaTable
+        DB_ENDPOINT: http://dynamodb/us-west-2.amazonaws.com
+        REGION_NAME: us-west-2
+
+Resources:
+  postHabiticaUpdate:
+    Type: AWS::Severless::Function
+    Properties:
+      Handler: index.habiticaHandler
+      Policies: AmazonDynamoDBFullAccess
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            Path: /update
+            Method: post
+  postTelegramRequest:
+    Type: AWS::Severless::Function
+    Properties:
+      Handler: index.botHandler
+      Policies: AmazonDynamoDBFullAccess
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            Path: /bot
+            Method: post
+
+DynamoHabiticaTable:
+  Type: AWS::Serverless::SimpleTable
+  TableName: habiticaUsers
+  PrimaryKey:
+    Name: userId
+    Type: String
+    ProvisionedThroughput:
+      ReadCapacityUnit: 5
+      WriteCapacityUnit: 5
+    Tags:
+      AppType: Serverless
+      
+DynamoTelegramTable:
+  Type: AWS::Serverless::SimpleTable
+  TableName: telegramGroupUsers
+  PrimaryKey:
+    Name: userId
+    Type: String
+    ProvisionedThroughput:
+      ReadCapacityUnit: 5
+      WriteCapacityUnit: 5
+    Tags:
+      AppType: Serverless
+
+
+
+
