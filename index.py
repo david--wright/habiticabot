@@ -64,13 +64,13 @@ def _kickGroupUser(group, user):
 def _parseBotCommands(message):
   if 'text' in message:
     if len(message['text']) > 1:
-      spiltCommand = message['text'].split()
+      splitCommand = message['text'].split()
       command = splitCommand[0][1:]
       options = splitCommand[1:]
     else:
       command = message['text'][1:]
       options = []
-    methodResult = getattr(self, '_command_'+command)(options)
+    methodResult = locals()['_command_'+command](options)
   elif 'new_chat_member' in message:
     methodResult = _addGroupUser
   elif 'left_chat_member' in message:
