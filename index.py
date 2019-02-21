@@ -72,9 +72,9 @@ def _parseBotCommands(message):
       options = []
     methodResult = locals()['_command_'+command](options)
   elif 'new_chat_member' in message:
-    methodResult = _addGroupUser
+    methodResult = locals()['_addGroupUser']()
   elif 'left_chat_member' in message:
-    methodCall = _deleteGroupUser
+    methodResult = locals()['_deleteGroupUser']()
   return methodResult
 
 def _sendTelegramMessage(message, group, botId):
