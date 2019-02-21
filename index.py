@@ -1,5 +1,6 @@
 import boto3
 import requests
+from botocore.exceptions import ClientError
 
 def _addGroupUser(group, user):
   client = boto3.resource('dynamodb')
@@ -40,13 +41,25 @@ def _addGroupUser(group, user):
   _sendTelegramMessage(message, group, botId)
   return (status, result)
 
-def _command_start(message):
+def _command_start(options, message):
+  welcomeMessage = """
+   Hi! I am fairly young so I might not work the way you want all the time. Just fair warning! If you still want to talk to me 
+   you can use the follwoing commands:
+   In a private chat with me:
+   /start                  show this message
+   /register               give me your habatica api information so I can pull habatica data for you
+   /status                 list what tasks you have left to do today
+   In a group chat with me:
+   /start                  show this message
+   /status                 show how many tasks each chat member has left
+   /status <username>      list which tasks the specified user still needs to do.
+  """
+  _sendTelegramMessage(welcomeMessage, group, botId)
+
+def _command_status(options, message):
   pass
 
-def _command_status(message):
-  pass
-
-def _command_register(message):
+def _command_register(options, message):
   pass
 
 def _deleteGroupUser(group, user):
@@ -70,7 +83,7 @@ def _parseBotCommands(message):
     else:
       command = message['text'][1:]
       options = []
-    methodResult = locals()['_command_'+command](options)
+    methodResult = locals()['_command_'+command](options, message)
   elif 'new_chat_member' in message:
     methodResult = locals()['_addGroupUser']()
   elif 'left_chat_member' in message:
