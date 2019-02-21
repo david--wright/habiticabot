@@ -1,22 +1,13 @@
 import boto3
+import json
 import requests
 from botocore.exceptions import ClientError
 
-def _addGroupUser(group, user):
+def _addGroupUser(user, data):
   client = boto3.resource('dynamodb')
   regTable = client.Table(DYNAMO_REG_TABLE)
   groupTable = client.Table(DYNAMO_GROUP_TABLE)
-  botTable = client.Table(DYNAMO_BOT_TABLE)
-  status=False
-  try:
-    response = botTable.get_item(
-      Key={
-        'name': 'id'
-          }
-      )
-    botId=response['Item']
-  except ClientError as e:
-    return (status, e.response['Error']['Message'])
+  status = False
   try:
     response = regTable.get_item(
       Key={
@@ -31,17 +22,17 @@ def _addGroupUser(group, user):
     else: 
       userData = None
   if userData:
-    result = groupTable.put_item(Item= {'group':  group, 'user': user})
-
+    result = groupTable.put_item(Item= {'group':  data['chat']['id'], 'user': user})
+    message = "{:s} added to group.".format(userData['username'])
     status = True
   else:
     message = "Unable to add User to group. Please have the user register with the bot."
     status=False
-    _kickGroupUser(group, user)
-  _sendTelegramMessage(message, group, botId)
+    _kickGroupUser(user, data)
+  _sendTelegramMessage(message, data['chat']['id'], data['botId'])
   return (status, result)
 
-def _command_start(options, message):
+def _command_start(options, message, data):
   welcomeMessage = """
    Hi! I am fairly young so I might not work the way you want all the time. Just fair warning! If you still want to talk to me 
    you can use the follwoing commands:
@@ -54,15 +45,13 @@ def _command_start(options, message):
    /status                 show how many tasks each chat member has left
    /status <username>      list which tasks the specified user still needs to do.
   """
-  _sendTelegramMessage(welcomeMessage, group, botId)
+
+  _sendTelegramMessage(welcomeMessage, data['chat']['id'], data['botId'])
 
 def _command_status(options, message):
   pass
 
 def _command_register(options, message):
-  pass
-
-def _deleteGroupUser(group, user):
   pass
 
 def _getTaskData(userId, userKey, task_type='dailys'):
@@ -71,10 +60,25 @@ def _getTaskData(userId, userKey, task_type='dailys'):
   r = requests.get("https://habitica.com/api/v3/tasks/user",params=payload,headers=headers)
   return r
 
-def _kickGroupUser(group, user):
+def _kickGroupUser(user, data):
   pass
 
 def _parseBotCommands(message):
+  data = {}
+  client = boto3.resource('dynamodb')
+  botTable = client.Table(DYNAMO_BOT_TABLE)
+  try:
+    response = botTable.get_item(
+      Key={
+        'name': 'id'
+          }
+      )
+    data['botId']=response['Item']
+  except ClientError as e:
+    return (False, e.response['Error']['Message'])
+
+  data['orig_user'] = message['from']
+  data['chat'] = message['chat']
   if 'text' in message:
     if len(message['text']) > 1:
       splitCommand = message['text'].split()
@@ -83,11 +87,12 @@ def _parseBotCommands(message):
     else:
       command = message['text'][1:]
       options = []
-    methodResult = locals()['_command_'+command](options, message)
+    methodResult = locals()['_command_'+command](options, message, data)
   elif 'new_chat_member' in message:
-    methodResult = locals()['_addGroupUser']()
+    user = message['new_chat_member']
+    methodResult = locals()['_addGroupUser'](user, data)
   elif 'left_chat_member' in message:
-    methodResult = locals()['_deleteGroupUser']()
+    methodResult = locals()['_deleteGroupUser'](user, data)
   return methodResult
 
 def _sendTelegramMessage(message, group, botId):
@@ -96,7 +101,7 @@ def _sendTelegramMessage(message, group, botId):
   return r
 
 def botHandler(event, context):
-  pass
+  result = _parseBotCommands(json.loads(event['body'])['root']['message'])
 
 def habiticaHandler(event, context):
   pass
