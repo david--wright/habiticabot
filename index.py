@@ -80,8 +80,8 @@ def _parseBotCommands(message):
   data['orig_user'] = message['from']
   data['chat'] = message['chat']
   if 'text' in message:
-    if len(message['text']) > 1:
-      splitCommand = message['text'].split()
+    splitCommand = message['text'].split()
+    if len(splitCommand) > 1:
       command = splitCommand[0][1:]
       options = splitCommand[1:]
     else:
@@ -92,7 +92,7 @@ def _parseBotCommands(message):
     user = message['new_chat_member']
     methodResult = locals()['_addGroupUser'](user, data)
   elif 'left_chat_member' in message:
-    methodResult = locals()['_deleteGroupUser'](user, data)
+    methodResult = locals()['_kickGroupUser'](user, data)
   return methodResult
 
 def _sendTelegramMessage(message, group, botId):
@@ -101,7 +101,8 @@ def _sendTelegramMessage(message, group, botId):
   return r
 
 def botHandler(event, context):
-  result = _parseBotCommands(json.loads(event['body'])['root']['message'])
+  result = _parseBotCommands(json.loads(event['body'])['message'])
+  return {"statusCode": 200, 'body': json.dumps(result)}
 
 def habiticaHandler(event, context):
   pass
