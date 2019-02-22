@@ -35,7 +35,7 @@ Resources:
         Api:
           Type: Api
           Properties:
-            Path: /bot
+            Path: /bot/{botId}
             Method: post
 
 DynamoHabiticaTable:
