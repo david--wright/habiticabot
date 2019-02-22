@@ -34,16 +34,22 @@ def _addGroupUser(user, data):
 
 def _command_start(options, message, data):
   welcomeMessage = """
-   Hi! I am fairly young so I might not work the way you want all the time. Just fair warning! If you still want to talk to me 
-   you can use the follwoing commands:
+   Hi! I am fairly young so I might not work the way you want all the time. Just fair warning!
+   If you still want to talk to me you can use the following commands:
    In a private chat with me:
-   /start                  show this message
-   /register               give me your habatica api information so I can pull habatica data for you
-   /status                 list what tasks you have left to do today
+   /start                  
+          show this message
+   /register
+          give me your habatica api information so I can pull habatica data for you
+   /status
+          list what tasks you have left to do today
    In a group chat with me:
-   /start                  show this message
-   /status                 show how many tasks each chat member has left
-   /status <username>      list which tasks the specified user still needs to do.
+   /start                  
+          show this message
+   /status
+          show how many tasks each chat member has left
+   /status <username>
+          list which tasks the specified user still needs to do.
   """
 
   _sendTelegramMessage(welcomeMessage, data['chat']['id'], data['botId'])
@@ -63,20 +69,8 @@ def _getTaskData(userId, userKey, task_type='dailys'):
 def _kickGroupUser(user, data):
   pass
 
-def _parseBotCommands(message):
-  data = {}
-  client = boto3.resource('dynamodb')
-  botTable = client.Table(DYNAMO_BOT_TABLE)
-  try:
-    response = botTable.get_item(
-      Key={
-        'name': 'id'
-          }
-      )
-    data['botId']=response['Item']
-  except ClientError as e:
-    return (False, e.response['Error']['Message'])
-
+def _parseBotCommands(message, botId):
+  data = {"botId": botId}
   data['orig_user'] = message['from']
   data['chat'] = message['chat']
   if 'text' in message:
@@ -87,12 +81,12 @@ def _parseBotCommands(message):
     else:
       command = message['text'][1:]
       options = []
-    methodResult = locals()['_command_'+command](options, message, data)
+    methodResult = globals()['_command_'+command](options, message, data)
   elif 'new_chat_member' in message:
     user = message['new_chat_member']
-    methodResult = locals()['_addGroupUser'](user, data)
+    methodResult = globals()['_addGroupUser'](user, data)
   elif 'left_chat_member' in message:
-    methodResult = locals()['_kickGroupUser'](user, data)
+    methodResult = globals()['_kickGroupUser'](user, data)
   return methodResult
 
 def _sendTelegramMessage(message, group, botId):
@@ -101,7 +95,7 @@ def _sendTelegramMessage(message, group, botId):
   return r
 
 def botHandler(event, context):
-  result = _parseBotCommands(json.loads(event['body'])['message'])
+  result = _parseBotCommands(json.loads(event['body'])['message'],event['pathParameters']['botId'])
   return {"statusCode": 200, 'body': json.dumps(result)}
 
 def habiticaHandler(event, context):
