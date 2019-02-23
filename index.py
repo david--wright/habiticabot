@@ -34,32 +34,54 @@ def _addGroupUser(user, data):
 
 def _command_start(options, message, data):
   welcomeMessage = """
-   Hi! I am fairly young so I might not work the way you want all the time. Just fair warning!
-   If you still want to talk to me you can use the following commands:
+   Hi! I am fairly young so I might not work the way you want all the time. Just fair warning! If you still want to talk to me you can use the following commands:
+   
    In a private chat with me:
    /start                  
-          show this message
+          show this message.
    /register
-          give me your habatica api information so I can pull habatica data for you
+          set your habatica api info.
    /status
-          list what tasks you have left to do today
+          list what tasks you have left today.
+   
    In a group chat with me:
    /start                  
-          show this message
+          show this message.
    /status
-          show how many tasks each chat member has left
+          show group task status.
    /status <username>
-          list which tasks the specified user still needs to do.
+          list tasks the user has left.
   """
 
   _sendTelegramMessage(welcomeMessage, data['chat']['id'], data['botId'])
+  return {'success': True, 'result':"Welcome Message Sent"}
 
 def _command_status(options, message):
   pass
 
 def _command_register(options, message):
-  pass
+  if message['chat']['type'] != 'private':
+    privateChatOnly = """
+    /register is only availibe in private chats. Please contact 
+    """
+    _sendTelegramMessage(welcomeMessage, data['chat']['id'], data['botId'])
+    return {'status': False, 'result': privateChatOnly} 
+  client = boto3.resource('dynamodb')
+  regTable = client.Table(DYNAMO_REG_TABLE)
+  groupTable = client.Table(DYNAMO_GROUP_TABLE)
+  status = False
+  response = regTable.put_item(
+    Item={
+        'year': year,
+        'title': title,
+        'info': {
+            'plot':"Nothing happens at all.",
+            'rating': decimal.Decimal(0)
+        }
+    }
+  )
 
+ 
 def _getTaskData(userId, userKey, task_type='dailys'):
   payload = {'type': task_type}
   headers = {'x-api-key':userKey, 'x-api-user':userId}
@@ -69,8 +91,8 @@ def _getTaskData(userId, userKey, task_type='dailys'):
 def _kickGroupUser(user, data):
   pass
 
-def _parseBotCommands(message, botId):
-  data = {"botId": botId}
+def _parseBotCommands(message, botId, botName):
+  data = {"botId": botId, 'botName': botName}
   data['orig_user'] = message['from']
   data['chat'] = message['chat']
   if 'text' in message:
@@ -95,7 +117,7 @@ def _sendTelegramMessage(message, group, botId):
   return r
 
 def botHandler(event, context):
-  result = _parseBotCommands(json.loads(event['body'])['message'],event['pathParameters']['botId'])
+  result = _parseBotCommands(json.loads(event['body'])['message'],event['pathParameters']['botId'], event['pathParameters']['botName'])
   return {"statusCode": 200, 'body': json.dumps(result)}
 
 def habiticaHandler(event, context):
