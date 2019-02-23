@@ -59,12 +59,11 @@ def _command_start(options, message, data):
 def _command_status(options, message):
   pass
 
-def _command_register(options, message):
+def _command_register(options, message, data):
   if message['chat']['type'] != 'private':
-    privateChatOnly = """
-    /register is only availibe in private chats. Please contact 
-    """
-    _sendTelegramMessage(welcomeMessage, data['chat']['id'], data['botId'])
+    privateChatOnly = "/register is only available in private chats.\
+       Please contact {:s} in a private chat to register".format(data['botName']) 
+    _sendTelegramMessage(privateChatOnly, data['chat']['id'], data['botId'])
     return {'status': False, 'result': privateChatOnly} 
   client = boto3.resource('dynamodb')
   regTable = client.Table(DYNAMO_REG_TABLE)
