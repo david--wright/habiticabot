@@ -1,5 +1,6 @@
 import boto3
 import json
+import os
 import requests
 from botocore.exceptions import ClientError
 
@@ -61,31 +62,47 @@ def _command_status(options, message):
 
 def _command_register(options, message, data):
   if message['chat']['type'] != 'private':
-    privateChatOnly = "/register is only available in private chats.\
-       Please contact {:s} in a private chat to register".format(data['botName']) 
+    privateChatOnly = "/register is only available in private chats. \
+Please contact {:s} in a private chat to register".format(data['botName']) 
     _sendTelegramMessage(privateChatOnly, data['chat']['id'], data['botId'])
     return {'status': False, 'result': privateChatOnly} 
-  client = boto3.resource('dynamodb')
+  if len(options) < 2:
+    moreOptionsNeeded = """/register requires that you send both your habitica api ID \
+and your habitica api key. This should look like:
+ /register this-is-my-api-id this-is-the-api-key"""
+    _sendTelegramMessage(moreOptionsNeeded, data['chat']['id'], data['botId'])
+    return {'status': False, 'result': moreOptionsNeeded} 
+  user = message['from']
+  user['id'] = str(user['id'])
+  user['apiId'] = options[0]
+  user['apiKey'] = options[1]
+  user['privateChatId'] = data['chat']['id']
+  if os.getenv("AWS_SAM_LOCAL", ""):
+    client = boto3.resource('dynamodb',
+                         endpoint_url='http://dynamodb:8000')
+    DYNAMO_REG_TABLE = "habiticaUsers"
+  else:
+    client = boto3.resource('dynamodb')
   regTable = client.Table(DYNAMO_REG_TABLE)
-  groupTable = client.Table(DYNAMO_GROUP_TABLE)
-  status = False
   response = regTable.put_item(
-    Item={
-        'year': year,
-        'title': title,
-        'info': {
-            'plot':"Nothing happens at all.",
-            'rating': decimal.Decimal(0)
-        }
-    }
+    Item = user
   )
-
+  habaticaData=_getHabiticaUserData(user['apiId'], user['apiKey'])
+  userRegistered = "Registered you as Habatica User {:s}".format(habaticaData['data']['profile']['name']) 
+  _sendTelegramMessage(userRegistered, data['chat']['id'], data['botId'])
+  return {'success': True, 'result': response, 'data': data}
  
 def _getTaskData(userId, userKey, task_type='dailys'):
   payload = {'type': task_type}
   headers = {'x-api-key':userKey, 'x-api-user':userId}
   r = requests.get("https://habitica.com/api/v3/tasks/user",params=payload,headers=headers)
-  return r
+  return r.json()
+
+def _getHabiticaUserData(userId, userKey):
+  payload = {}
+  headers = {'x-api-key':userKey, 'x-api-user':userId}
+  r = requests.get("https://habitica.com/api/v3/user",params=payload,headers=headers)
+  return r.json()
 
 def _kickGroupUser(user, data):
   pass
@@ -94,7 +111,7 @@ def _parseBotCommands(message, botId, botName):
   data = {"botId": botId, 'botName': botName}
   data['orig_user'] = message['from']
   data['chat'] = message['chat']
-  if 'text' in message:
+  if 'text' in message and message['text'][0] == '/':
     splitCommand = message['text'].split()
     if len(splitCommand) > 1:
       command = splitCommand[0][1:]
