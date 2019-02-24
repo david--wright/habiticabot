@@ -18,7 +18,7 @@ def _addGroupUser(user, data):
   try:
     response = regTable.get_item(
       Key={
-        'id': user
+        'id': str(user['id'])
           }
       )
   except ClientError:
@@ -29,31 +29,33 @@ def _addGroupUser(user, data):
     else: 
       userData = None
   if not userData:
-    message = "Unable to add User to group. Please have the user register with the bot."
+    message = "Unable to add User to group. Please have the user register with {:s}.".format(data['botName'])
     status=False
     _kickGroupUser(user, data)
     _sendTelegramMessage(message, data['chat']['id'], data['botId'])
-  try:
-    response = groupTable.get_item(
-    Key={
-      'id': data['chat']['id']
-        }
-    )
-  except ClientError:
-    groupData = None
-  else:
-    if 'Item' in response:
-      groupData = response['Item']
-    else: 
+    result = "No matching registered user"
+  else: 
+    try:
+      response = groupTable.get_item(
+      Key={
+        'id': str(data['chat']['id'])
+          }
+      )
+    except ClientError:
       groupData = None
-  if groupData:
-    groupData['members'].append(user['id'])
-  else:
-    groupData = {'group':  data['chat']['id'], 'members': {user['id']}}
-  result = groupTable.put_item(Item=groupData)
-  message = "{:s} added to group.".format(userData['username'])
-  _sendTelegramMessage(message, data['chat']['id'], data['botId'])
-  status = True
+    else:
+      if 'Item' in response:
+        groupData = response['Item']
+      else: 
+        groupData = None
+    if groupData:
+      groupData['members'].add(str(user['id']))
+    else:
+      groupData = {'id':  str(data['chat']['id']), 'members': {user['id']}}
+    result = groupTable.put_item(Item=groupData)
+    message = "{:s} added to group.".format(userData['username'])
+    _sendTelegramMessage(message, data['chat']['id'], data['botId'])
+    status = True
   return (status, result)
 
 def _command_start(options, message, data):
