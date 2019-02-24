@@ -5,14 +5,20 @@ import requests
 from botocore.exceptions import ClientError
 
 def _addGroupUser(user, data):
-  client = boto3.resource('dynamodb')
+  if os.getenv("AWS_SAM_LOCAL", ""):
+    client = boto3.resource('dynamodb',
+                          endpoint_url='http://dynamodb:8000')
+    DYNAMO_REG_TABLE = "habiticaUsers"
+    DYNAMO_GROUP_TABLE = "telegramGroupUsers"
+  else:
+    client = boto3.resource('dynamodb')
   regTable = client.Table(DYNAMO_REG_TABLE)
   groupTable = client.Table(DYNAMO_GROUP_TABLE)
   status = False
   try:
     response = regTable.get_item(
       Key={
-        'user': user
+        'id': user
           }
       )
   except ClientError:
@@ -22,15 +28,32 @@ def _addGroupUser(user, data):
       userData = response['Item']
     else: 
       userData = None
-  if userData:
-    result = groupTable.put_item(Item= {'group':  data['chat']['id'], 'user': user})
-    message = "{:s} added to group.".format(userData['username'])
-    status = True
-  else:
+  if not userData:
     message = "Unable to add User to group. Please have the user register with the bot."
     status=False
     _kickGroupUser(user, data)
+    _sendTelegramMessage(message, data['chat']['id'], data['botId'])
+  try:
+    response = groupTable.get_item(
+    Key={
+      'id': data['chat']['id']
+        }
+    )
+  except ClientError:
+    groupData = None
+  else:
+    if 'Item' in response:
+      groupData = response['Item']
+    else: 
+      groupData = None
+  if groupData:
+    groupData['members'].append(user['id'])
+  else:
+    groupData = {'group':  data['chat']['id'], 'members': {user['id']}}
+  result = groupTable.put_item(Item=groupData)
+  message = "{:s} added to group.".format(userData['username'])
   _sendTelegramMessage(message, data['chat']['id'], data['botId'])
+  status = True
   return (status, result)
 
 def _command_start(options, message, data):
