@@ -111,9 +111,14 @@ and your habitica api key. This should look like:
     Item = user
   )
   habaticaData=_getHabiticaUserData(user['apiId'], user['apiKey'])
-  userRegistered = "Registered you as Habatica User {:s}".format(habaticaData['data']['profile']['name']) 
+  if 'data' in habaticaData:
+    userRegistered = "Registered you as Habatica User {:s}".format(habaticaData['data']['profile']['name']) 
+    status = True
+  else:
+    userRegistered = "Are you sure that you exist? Habatica claims that there is no account that uses those credentials."
+    status = False
   _sendTelegramMessage(userRegistered, data['chat']['id'], data['botId'])
-  return {'success': True, 'result': response, 'data': data}
+  return {'success': status, 'result': response, 'data': data}
  
 def _getTaskData(userId, userKey, task_type='dailys'):
   payload = {'type': task_type}
