@@ -51,9 +51,9 @@ def _addGroupUser(user, data):
     if groupData:
       groupData['members'].add(str(user['id']))
     else:
-      groupData = {'id':  str(data['chat']['id']), 'members': {user['id']}}
+      groupData = {'id':  str(data['chat']['id']), 'members': {str(user['id'])}}
     result = groupTable.put_item(Item=groupData)
-    message = "{:s} added to group.".format(userData['username'])
+    message = "{:s} added to group.".format(userData['first_name'])
     _sendTelegramMessage(message, data['chat']['id'], data['botId'])
     status = True
   return (status, result)
