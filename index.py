@@ -5,29 +5,8 @@ import requests
 from botocore.exceptions import ClientError
 
 def _addGroupUser(user, data):
-  if os.getenv("AWS_SAM_LOCAL", ""):
-    client = boto3.resource('dynamodb',
-                          endpoint_url='http://dynamodb:8000')
-    DYNAMO_REG_TABLE = "habiticaUsers"
-    DYNAMO_GROUP_TABLE = "telegramGroupUsers"
-  else:
-    client = boto3.resource('dynamodb')
-  regTable = client.Table(DYNAMO_REG_TABLE)
-  groupTable = client.Table(DYNAMO_GROUP_TABLE)
   status = False
-  try:
-    response = regTable.get_item(
-      Key={
-        'id': str(user['id'])
-          }
-      )
-  except ClientError:
-    userData = None
-  else:
-    if 'Item' in response:
-      userData = response['Item']
-    else: 
-      userData = None
+  userData = _getUser(user['id']) 
   if not userData:
     message = "Unable to add User to group. Please have the user register with {:s}.".format(data['botName'])
     status=False
@@ -35,25 +14,22 @@ def _addGroupUser(user, data):
     _sendTelegramMessage(message, data['chat']['id'], data['botId'])
     result = "No matching registered user"
   else: 
-    try:
-      response = groupTable.get_item(
-      Key={
-        'id': str(data['chat']['id'])
-          }
-      )
-    except ClientError:
-      groupData = None
-    else:
-      if 'Item' in response:
-        groupData = response['Item']
-      else: 
-        groupData = None
+    groupData = _getGroup(data['chat']['id'])
+    alreadyExists = False
     if groupData:
-      groupData['members'].add(str(user['id']))
+      if user['id'] not in groupData['members']:
+        groupData['members'].add(str(user['id']))
+        result = _putGroup(groupData)
+      else:
+        alreadyExists = True
+        result = "User previously registered"
     else:
       groupData = {'id':  str(data['chat']['id']), 'members': {str(user['id'])}}
-    result = groupTable.put_item(Item=groupData)
-    if 'username' in userData:
+      result = _putGroup(groupData)
+    
+    if alreadyExists:
+      message = "{:s} is already a member of the group.".format(userData['username'])
+    elif 'username' in userData:
       message = "{:s} added to group.".format(userData['username'])
     else:
       message = "{0:s} added to group. {0:s} does not have a username set so detailed status lookups will be unavailable in the group".format(userData['first_name'])
@@ -86,7 +62,13 @@ def _command_start(options, message, data):
   return {'success': True, 'result':"Welcome Message Sent"}
 
 def _command_status(options, message):
-  pass
+  if message['chat']['type'] == 'private':
+    _getIndividualStatus(message['from']['id'])
+  elif options:
+    for username in options:
+      _getIndividualStatus(username)
+  else:
+    pass
 
 def _command_register(options, message, data):
   if message['chat']['type'] != 'private':
@@ -105,37 +87,79 @@ and your habitica api key. This should look like:
   user['apiId'] = options[0]
   user['apiKey'] = options[1]
   user['privateChatId'] = data['chat']['id']
-  if os.getenv("AWS_SAM_LOCAL", ""):
-    client = boto3.resource('dynamodb',
-                         endpoint_url='http://dynamodb:8000')
-    DYNAMO_REG_TABLE = "habiticaUsers"
-  else:
-    client = boto3.resource('dynamodb')
-  regTable = client.Table(DYNAMO_REG_TABLE)
-  response = regTable.put_item(
-    Item = user
-  )
-  habaticaData=_getHabiticaUserData(user['apiId'], user['apiKey'])
-  if 'data' in habaticaData:
-    userRegistered = "Registered you as Habatica User {:s}".format(habaticaData['data']['profile']['name']) 
+  habiticaData=_getHabiticaUserData(user['apiId'], user['apiKey'])
+  if 'data' in habiticaData:
+    userRegistered = "Registered you as Habatica User {:s}".format(habiticaData['data']['profile']['name']) 
     status = True
   else:
     userRegistered = "Are you sure that you exist? Habatica claims that there is no account that uses those credentials."
     status = False
   _sendTelegramMessage(userRegistered, data['chat']['id'], data['botId'])
-  return {'success': status, 'result': response, 'data': data}
- 
-def _getTaskData(userId, userKey, task_type='dailys'):
-  payload = {'type': task_type}
-  headers = {'x-api-key':userKey, 'x-api-user':userId}
-  r = requests.get("https://habitica.com/api/v3/tasks/user",params=payload,headers=headers)
-  return r.json()
+  return {'success': status, 'result': habiticaData, 'data': data}
+
+def _getGroup(groupId):
+  if os.getenv("AWS_SAM_LOCAL", ""):
+    client = boto3.resource('dynamodb',
+                          endpoint_url='http://dynamodb:8000')
+    DYNAMO_GROUP_TABLE = "telegramGroupUsers"
+  else:
+    client = boto3.resource('dynamodb')
+  groupTable = client.Table(DYNAMO_GROUP_TABLE)
+  try:
+      response = groupTable.get_item(
+      Key={
+        'id': str(groupId)
+          }
+      )
+  except ClientError:
+    groupData = None
+  else:
+    if 'Item' in response:
+      groupData = response['Item']
+    else: 
+      groupData = None
+  return groupData
+
+def _getGroupStatusSummary(groupId):
+  pass
 
 def _getHabiticaUserData(userId, userKey):
   payload = {}
   headers = {'x-api-key':userKey, 'x-api-user':userId}
   r = requests.get("https://habitica.com/api/v3/user",params=payload,headers=headers)
   return r.json()
+
+def _getIndividualStatus(user):
+  pass
+
+def _getTaskData(userId, userKey, task_type='dailys'):
+  payload = {'type': task_type}
+  headers = {'x-api-key':userKey, 'x-api-user':userId}
+  r = requests.get("https://habitica.com/api/v3/tasks/user",params=payload,headers=headers)
+  return r.json()
+
+def _getUser(userId):
+  if os.getenv("AWS_SAM_LOCAL", ""):
+    client = boto3.resource('dynamodb',
+                          endpoint_url='http://dynamodb:8000')
+    DYNAMO_REG_TABLE = "habiticaUsers"
+  else:
+    client = boto3.resource('dynamodb')
+  regTable = client.Table(DYNAMO_REG_TABLE)
+  try:
+    response = regTable.get_item(
+    Key={
+      'id': str(userId)
+        }
+    )
+  except ClientError:
+    userData = None
+  else:
+    if 'Item' in response:
+      userData = response['Item']
+    else: 
+      userData = None
+  return userData
 
 def _kickGroupUser(user, data):
   pass
@@ -159,6 +183,32 @@ def _parseBotCommands(message, botId, botName):
   elif 'left_chat_member' in message:
     methodResult = globals()['_kickGroupUser'](user, data)
   return methodResult
+
+def _putGroup(groupData):
+  if os.getenv("AWS_SAM_LOCAL", ""):
+    client = boto3.resource('dynamodb',
+                          endpoint_url='http://dynamodb:8000')
+    DYNAMO_GROUP_TABLE = "telegramGroupUsers"
+  else:
+    client = boto3.resource('dynamodb')
+  groupTable = client.Table(DYNAMO_GROUP_TABLE)
+  response = groupTable.put_item(
+    Item = groupData
+  )
+  return response
+
+def _putUser(user):
+  if os.getenv("AWS_SAM_LOCAL", ""):
+    client = boto3.resource('dynamodb',
+                         endpoint_url='http://dynamodb:8000')
+    DYNAMO_REG_TABLE = "habiticaUsers"
+  else:
+    client = boto3.resource('dynamodb')
+  regTable = client.Table(DYNAMO_REG_TABLE)
+  response = regTable.put_item(
+    Item = user
+  )
+  return response
 
 def _sendTelegramMessage(message, group, botId):
   payload = {'chat_id': group, 'text': message}
