@@ -51,6 +51,35 @@ DynamoHabiticaTable:
       AppType: Serverless
       
 DynamoTelegramTable:
+  Type: AWS::DynamoDB::TableName
+  Properties:
+    TableName: telegramGroupUsers
+    AttributeDefinitions: 
+      -
+        AttributeName: "id"
+        AttributeType: "S"
+      -
+        AttributeName: "username"
+        AttributeType: "S"
+    KeySchema:
+      -
+        AttributeName: "id"
+        KeyType: "HASH"
+    GlobalSecondaryIndexes:
+      -
+        IndexName: "username"
+        KeySchema:
+          -
+            AttributeName: "username"
+            KeyType: "HASH"
+        Projection:
+          ProjectionType: "ALL"
+    ProvisionedThroughput:
+      ReadCapacityUnit: 5
+      WriteCapacityUnit: 5
+
+
+OldTelegramTable:
   Type: AWS::Serverless::SimpleTable
   TableName: telegramGroupUsers
   PrimaryKey:
