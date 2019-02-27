@@ -63,12 +63,13 @@ def _command_start(options, message, data):
 
 def _command_status(options, message):
   if message['chat']['type'] == 'private':
-    _getIndividualStatus(message['from']['id'])
+    userStatus = [_getIndividualStatus(message['from']['id'])]
   elif options:
+    userStatus = []
     for username in options:
-      _getIndividualStatus(username)
+      userStatus.append(_getIndividualStatus(username))
   else:
-    pass
+    groupStatus=_getGroupStatusSummary(message['chat']['id'])
 
 def _command_register(options, message, data):
   if message['chat']['type'] != 'private':
