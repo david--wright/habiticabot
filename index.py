@@ -61,15 +61,27 @@ def _command_start(options, message, data):
   _sendTelegramMessage(welcomeMessage, data['chat']['id'], data['botId'])
   return {'success': True, 'result':"Welcome Message Sent"}
 
-def _command_status(options, message):
+def _command_status(options, message, data):
   if message['chat']['type'] == 'private':
-    userStatus = [_getIndividualStatus(message['from']['id'])]
+    statusRawData = [_getIndividualStatus(message['from']['id'])]
+    statusFormated = ["{:s}".format(unfinishedTask.name) for unfinishedTask in statusRawData['unfinished']
+    status=[{'title':"Your Status:", 'message': statusFormated}]
   elif options:
-    userStatus = []
+    status = []
     for username in options:
-      userStatus.append(_getIndividualStatus(username))
+      statusData=_getIndividualStatus(username)
+      statusFormated = ["{:s}".format(unfinishedTask.name) for unfinishedTask in statusRawData['unfinished']
+      status.append({'title":'"Status for {:s}:".format(username), 'message': statusFormated})
   else:
-    groupStatus=_getGroupStatusSummary(message['chat']['id'])
+    statusRawData = [_getGroupStatusSummary(message['chat']['id'])]
+    StatusFormated = ["{:s}-   {:s}".format(user.name, len(user.unfinished)) for user in statusRawData] 
+    status = [{'title':"Summary of Everyone's Status:", 'message': statusFormated}]
+  for data in status:
+    post="{:s}{:s}     ".format(title)
+    _sendTelegramMessage(post, data['chat']['id'], data['botId'])
+  
+  
+  return {'data': True, 'result': status}
 
 def _command_register(options, message, data):
   if message['chat']['type'] != 'private':
