@@ -64,14 +64,14 @@ def _command_start(options, message, data):
 def _command_status(options, message, data):
   if message['chat']['type'] == 'private':
     statusRawData = [_getIndividualStatus(message['from']['id'])]
-    statusFormated = ["{:s}".format(unfinishedTask.name) for unfinishedTask in statusRawData['unfinished']
+    statusFormated = ["{:s}".format(unfinishedTask.name) for unfinishedTask in statusRawData['unfinished']]
     status=[{'title':"Your Status:", 'message': statusFormated}]
   elif options:
     status = []
     for username in options:
-      statusData=_getIndividualStatus(username)
-      statusFormated = ["{:s}".format(unfinishedTask.name) for unfinishedTask in statusRawData['unfinished']
-      status.append({'title":'"Status for {:s}:".format(username), 'message': statusFormated})
+      statusData=_getIndividualStatus(_getUserId(username))
+      statusFormated = ["{:s}".format(unfinishedTask.name) for unfinishedTask in statusRawData['unfinished']]
+      status.append({'title':"Status for {:s}:".format(username), 'message': statusFormated})
   else:
     statusRawData = [_getGroupStatusSummary(message['chat']['id'])]
     StatusFormated = ["{:s}-   {:s}".format(user.name, len(user.unfinished)) for user in statusRawData] 
@@ -79,8 +79,6 @@ def _command_status(options, message, data):
   for data in status:
     post="{:s}{:s}     ".format(title)
     _sendTelegramMessage(post, data['chat']['id'], data['botId'])
-  
-  
   return {'data': True, 'result': status}
 
 def _command_register(options, message, data):
@@ -143,7 +141,7 @@ def _getHabiticaUserData(userId, userKey):
   return r.json()
 
 def _getIndividualStatus(user):
-  pass
+  
 
 def _getTaskData(userId, userKey, task_type='dailys'):
   payload = {'type': task_type}
